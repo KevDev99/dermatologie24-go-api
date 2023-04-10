@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  db:
+    image: mysql
+    container_name: mysql
+    volumes:
+      - .db-scripts/setup.sql:/docker-entrypoint-initdb.d/entrypoint.sql
+      - vol-db:/var/lib/mysql
+    environment:
+     MYSQL_ROOT_PASSWORD: '${MYSQL_ROOT_PW}'
+     MYSQL_ROOT_HOST: "%"
+    restart: always
+    ports:
+      - "3306:3306"
+  api:
+    build: .
+    container_name: go-api
+    ports:
+      - "3000:3000"
+    environment:
+     MYSQL: '${MYSQL}'
+    volumes:
+      - .:/usr/src/app
+    command: go run main.go
+volumes:
+  vol-db:

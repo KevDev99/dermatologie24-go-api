@@ -19,5 +19,5 @@ func main() {
 	routes.BookingRoute(router)
 	routes.AuthRoute(router)
 
-	log.Fatal(http.ListenAndServe(":6000", router))
+	log.Fatal(http.ListenAndServe(":3000", router))
 }
