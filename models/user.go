@@ -3,11 +3,12 @@ package models
 import "reflect"
 
 type User struct {
-	Id        int    `json:"id"`
-	Firstname string `json:"firstname" validate:"required"`
-	Lastname  string `json:"lastname" validate:"required"`
-	Email     string `json:"email" validate:"required"`
-	Password  string `json:"password" validate:"required"`
+	Id                  int    `json:"id"`
+	Firstname           string `json:"firstname" validate:"required"`
+	Lastname            string `json:"lastname" validate:"required"`
+	Email               string `json:"email" validate:"required"`
+	Password            string `json:"password" validate:"required"`
+	GotPatientDetailsYN bool   `json:"got_patientdetails_yn" validate:"required"`
 }
 
 type UserWithoutPassword struct {

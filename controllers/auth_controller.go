@@ -27,7 +27,7 @@ func Login() http.HandlerFunc {
 
 		// query user
 		queryErr := configs.DB.Where("email = ?", userInput.Email).First(&user).Error
-		if err != nil {
+		if queryErr != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": queryErr.Error()})
 			return
 		}
