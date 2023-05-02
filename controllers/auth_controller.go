@@ -20,22 +20,23 @@ func Login() http.HandlerFunc {
 
 		// Parse the request body
 		err := json.NewDecoder(r.Body).Decode(&userInput)
+
 		if err != nil {
-			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
+			utils.SendResponse(rw, http.StatusBadRequest, err.Error(), map[string]interface{}{"data": err.Error()})
 			return
 		}
 
 		// query user
 		queryErr := configs.DB.Where("email = ?", userInput.Email).First(&user).Error
 		if queryErr != nil {
-			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": queryErr.Error()})
+			utils.SendResponse(rw, http.StatusBadRequest, queryErr.Error(), map[string]interface{}{"data": queryErr.Error()})
 			return
 		}
 
 		// compare pw
 		authErr := utils.ComparePasswords([]byte(user.Password), userInput.Password)
 		if authErr != nil {
-			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": authErr.Error()})
+			utils.SendResponse(rw, http.StatusBadRequest, authErr.Error(), map[string]interface{}{"data": authErr.Error()})
 			return
 		}
 

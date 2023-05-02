@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -19,5 +20,14 @@ func main() {
 	routes.BookingRoute(router)
 	routes.AuthRoute(router)
 
-	log.Fatal(http.ListenAndServe(":3000", router))
+	fmt.Println("Server is ready to handle requests at", configs.EnvPort())
+	err := http.ListenAndServe(":"+configs.EnvPort(), router)
+
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	log.Fatal("Server stopped.")
+
 }
