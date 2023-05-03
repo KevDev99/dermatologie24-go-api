@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/KevDev99/dermatologie24-go-api/configs"
 	"github.com/KevDev99/dermatologie24-go-api/models"
 	"github.com/KevDev99/dermatologie24-go-api/utils"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/context"
 )
 
@@ -29,14 +31,14 @@ func Login() http.HandlerFunc {
 		// query user
 		queryErr := configs.DB.Where("email = ?", userInput.Email).First(&user).Error
 		if queryErr != nil {
-			utils.SendResponse(rw, http.StatusBadRequest, queryErr.Error(), map[string]interface{}{"data": queryErr.Error()})
+			utils.SendResponse(rw, http.StatusBadRequest, "Wrong Credentials. Please try again.", map[string]interface{}{"data": queryErr.Error()})
 			return
 		}
 
 		// compare pw
 		authErr := utils.ComparePasswords([]byte(user.Password), userInput.Password)
 		if authErr != nil {
-			utils.SendResponse(rw, http.StatusBadRequest, authErr.Error(), map[string]interface{}{"data": authErr.Error()})
+			utils.SendResponse(rw, http.StatusBadRequest, "Wrong Credentials. Please try again.", map[string]interface{}{"data": authErr.Error()})
 			return
 		}
 
@@ -171,5 +173,44 @@ func RefreshToken() http.HandlerFunc {
 		// Return a success response
 		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"access_token": accessToken, "refresh_token": refreshToken})
 
+	}
+}
+
+func PasswordReset() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		var user models.User
+
+		// Check if the "field" form field is included in the request body
+		email := r.FormValue("email")
+
+		if email == "" {
+			utils.SendResponse(rw, http.StatusBadRequest, "No email provided", map[string]interface{}{"data": "No email provided"})
+			return
+		}
+
+		// get user by mail
+		queryErr := configs.DB.Where("email = ?", email).First(&user).Error
+		if queryErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "No user with that email found.", map[string]interface{}{"data": queryErr.Error()})
+			return
+		}
+
+		// check if there is already a token in the db
+		token := uuid.New().String()
+		expiresAt := time.Now().Add(time.Hour * 24)
+
+		// create new password forget token
+		passwordForgetToken := models.PasswordResetToken{Token: token, UserID: user.Id, ExpiresAt: expiresAt}
+
+		// add to db
+		err := configs.DB.Create(&passwordForgetToken).Error
+		if err != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal server error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", "<h1>Neues Password</h1>")
+
+		utils.SendResponse(rw, http.StatusOK, "reset token send via mail.", map[string]interface{}{"data": "reset token send via mail."})
 	}
 }
