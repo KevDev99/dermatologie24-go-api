@@ -94,10 +94,11 @@ func Register() http.HandlerFunc {
 
 		// create new user
 		newUser := models.User{
-			Firstname: user.Firstname,
-			Lastname:  user.Lastname,
-			Email:     user.Email,
-			Password:  string(hashedPassword),
+			Firstname:           user.Firstname,
+			Lastname:            user.Lastname,
+			Email:               user.Email,
+			Password:            string(hashedPassword),
+			GotPatientDetailsYN: false,
 		}
 
 		if err := configs.DB.Create(&newUser).Error; err != nil {

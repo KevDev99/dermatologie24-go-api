@@ -31,8 +31,6 @@ func AddBooking() http.HandlerFunc {
 		booking.Subject = form.Get("subject")
 		booking.Message = form.Get("message")
 
-		configs.DB.Save(&booking)
-
 		// upload files
 		go uploadFiles(files, booking.Id)
 

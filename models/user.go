@@ -8,7 +8,7 @@ type User struct {
 	Lastname            string `json:"lastname" validate:"required"`
 	Email               string `json:"email" validate:"required"`
 	Password            string `json:"password" validate:"required"`
-	GotPatientDetailsYN bool   `json:"got_patientdetails_yn" validate:"required"`
+	GotPatientDetailsYN bool   `json:"got_patient_details_yn"`
 }
 
 type UserWithoutPassword struct {

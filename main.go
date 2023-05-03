@@ -19,6 +19,7 @@ func main() {
 	routes.UserRoute(router)
 	routes.BookingRoute(router)
 	routes.AuthRoute(router)
+	routes.StatsRoute(router)
 
 	fmt.Println("Server is ready to handle requests at", configs.EnvPort())
 	err := http.ListenAndServe(":"+configs.EnvPort(), router)
