@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/KevDev99/dermatologie24-go-api/configs"
@@ -180,6 +181,19 @@ func PasswordReset() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		var user models.User
 
+		// check if token is set -> user has already received token and can now enter a new one
+		queryParams := r.URL.Query()
+		token := queryParams.Get("token")
+
+		if token != "" {
+			// create the custom URL scheme to launch the app
+			url := os.Getenv("APP_URL") + "?token=" + token
+
+			// redirect to the custom URL scheme
+			http.Redirect(rw, r, url, http.StatusSeeOther)
+			return
+		}
+
 		// Check if the "field" form field is included in the request body
 		email := r.FormValue("email")
 
@@ -196,11 +210,11 @@ func PasswordReset() http.HandlerFunc {
 		}
 
 		// check if there is already a token in the db
-		token := uuid.New().String()
+		newToken := uuid.New().String()
 		expiresAt := time.Now().Add(time.Hour * 24)
 
 		// create new password forget token
-		passwordForgetToken := models.PasswordResetToken{Token: token, UserID: user.Id, ExpiresAt: expiresAt}
+		passwordForgetToken := models.PasswordResetToken{Token: newToken, UserID: user.Id, ExpiresAt: expiresAt}
 
 		// add to db
 		err := configs.DB.Create(&passwordForgetToken).Error
@@ -209,7 +223,9 @@ func PasswordReset() http.HandlerFunc {
 			return
 		}
 
-		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", "<h1>Neues Password</h1>")
+		htmlBody := fmt.Sprintf("<h1>Passwort Zurücksetzen</h1><br/><br/><h2>Url: <a href='www.google.com'>http://localhost:5000/reset-password?token=%s</a> <h2>", passwordForgetToken.Token)
+
+		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", htmlBody)
 
 		utils.SendResponse(rw, http.StatusOK, "reset token send via mail.", map[string]interface{}{"data": "reset token send via mail."})
 	}
