@@ -223,7 +223,7 @@ func PasswordReset() http.HandlerFunc {
 			return
 		}
 
-		htmlBody := fmt.Sprintf("<h1>Passwort Zurücksetzen</h1><br/><br/><h2>Url: <a href='www.google.com'>http://localhost:5000/reset-password?token=%s</a> <h2>", passwordForgetToken.Token)
+		htmlBody := fmt.Sprintf("<h1>Passwort Zurücksetzen</h1><br/><br/><h2>Url: <a href='dermatologie24://launch?token=%s'>dermatologie24://launch?token=%s</a> <h2>", passwordForgetToken.Token, passwordForgetToken.Token)
 
 		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", htmlBody)
 
