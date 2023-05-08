@@ -216,7 +216,6 @@ func uploadFiles(files []*multipart.FileHeader, bookingId int) error {
 		bookingFile.BookingId = bookingId
 
 		configs.DB.Save(&bookingFile)
-
 	}
 
 	return nil
