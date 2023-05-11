@@ -7,5 +7,5 @@ import (
 )
 
 func StatsRoute(router *mux.Router) {
-	router.Handle("/stats", middleware.AuthMiddleware(controllers.Stats())).Methods("GET")
+	router.Handle("/admin/stats", middleware.AuthMiddleware(middleware.AdminMiddleware(controllers.Stats()))).Methods("GET")
 }

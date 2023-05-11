@@ -230,3 +230,48 @@ func PasswordReset() http.HandlerFunc {
 		utils.SendResponse(rw, http.StatusOK, "reset token send via mail.", map[string]interface{}{"data": "reset token send via mail."})
 	}
 }
+
+func AdminLogin() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+
+		var user models.User
+		var userInput models.User
+
+		// Parse the request body
+		err := json.NewDecoder(r.Body).Decode(&userInput)
+
+		if err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, err.Error(), map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		// query admin
+		queryErr := configs.DB.Where("email = ? AND adminYN = ?", userInput.Email, 1).First(&user).Error
+		if queryErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Wrong Credentials. Please try again.", map[string]interface{}{"data": queryErr.Error()})
+			return
+		}
+
+		// compare pw
+		authErr := utils.ComparePasswords([]byte(user.Password), userInput.Password)
+		if authErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Wrong Credentials. Please try again.", map[string]interface{}{"data": authErr.Error()})
+			return
+		}
+
+		// Generate the JWT token
+		accessToken, accessTokenErr := configs.GenerateToken(user, byte(configs.AccessToken))
+
+		if accessTokenErr != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error", map[string]interface{}{"data": "Internal Error"})
+			fmt.Println("Internal Error when creating Access Token: " + accessTokenErr.Error())
+			return
+		}
+
+		// Set the JWT token in the response header
+		rw.Header().Set("Authorization", "Bearer "+accessToken)
+
+		// Return a success response
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": map[string]interface{}{"access_token": accessToken}})
+	}
+}

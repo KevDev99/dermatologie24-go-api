@@ -11,4 +11,5 @@ func AuthRoute(router *mux.Router) {
 	router.Handle("/auth/protected", middleware.AuthMiddleware(controllers.Protected())).Methods("POST")
 	router.Handle("/auth/register", controllers.Register()).Methods("POST")
 	router.Handle("/auth/refresh-token", controllers.RefreshToken()).Methods("POST")
+	router.Handle("/admin/login", controllers.AdminLogin()).Methods("POST")
 }
