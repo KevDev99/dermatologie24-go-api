@@ -88,6 +88,14 @@ func Register() http.HandlerFunc {
 			return
 		}
 
+		var userExisting models.User
+
+		configs.DB.First(&userExisting, "email = ?", user.Email)
+		if userExisting.Email != "" {
+			utils.SendResponse(rw, http.StatusBadRequest, "User already existing.", map[string]interface{}{"data": "User already existing."})
+			return
+		}
+
 		// hash pw
 		hashedPassword, hashError := utils.GetHashedPassword(user.Password)
 		if hashError != nil {
@@ -97,8 +105,6 @@ func Register() http.HandlerFunc {
 
 		// create new user
 		newUser := models.User{
-			Firstname:           user.Firstname,
-			Lastname:            user.Lastname,
 			Email:               user.Email,
 			Password:            string(hashedPassword),
 			GotPatientDetailsYN: false,
@@ -109,7 +115,24 @@ func Register() http.HandlerFunc {
 			return
 		}
 
-		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": newUser})
+		// create token for email confirmation
+		// check if there is already a token in the db
+		newToken := uuid.New().String()
+		expiresAt := time.Now().Add(time.Hour * 24)
+		emailConfirmToken := models.EmailConfirmToken{Token: newToken, UserID: newUser.Id, ExpiresAt: expiresAt}
+
+		if err := configs.DB.Create(&emailConfirmToken).Error; err != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		htmlBody := fmt.Sprintf("<h1>Email Bestätigen</h1><br/><br/><h2>Link: <a href='%s:%s/%s?token=%s'>Hier Klicken</a> <h2>", os.Getenv("URL"), os.Getenv("PORT"), "confirm-mail", emailConfirmToken.Token)
+		configs.SendMail("no-reply@dermatologie24.com", newUser.Email, "Email Bestätigen", htmlBody)
+
+		// clear pw from response
+		newUser.Password = ""
+
+		utils.SendResponse(rw, http.StatusOK, "User created.", map[string]interface{}{"data": newUser})
 	}
 }
 
@@ -228,6 +251,40 @@ func PasswordReset() http.HandlerFunc {
 		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", htmlBody)
 
 		utils.SendResponse(rw, http.StatusOK, "reset token send via mail.", map[string]interface{}{"data": "reset token send via mail."})
+	}
+}
+
+func EmailConfirm() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		var emailConfirmToken models.EmailConfirmToken
+
+		// check if token is set -> user has already received token and can now enter a new one
+		queryParams := r.URL.Query()
+		token := queryParams.Get("token")
+
+		if token == "" {
+			utils.SendResponse(rw, http.StatusBadRequest, "No Token Provided", map[string]interface{}{"data": "No Token Provided"})
+			return
+		}
+
+		// get token
+		queryErr := configs.DB.Where("token = ?", token).First(&emailConfirmToken).Error
+		if queryErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Token Not Found.", map[string]interface{}{"data": "Token Not Found."})
+			return
+		}
+
+		// validate token
+
+		// set confirmed to true
+		configs.DB.Exec("UPDATE users SET email_confirmed_yn = ? WHERE id = ?", 1, emailConfirmToken.UserID)
+
+		// delete from email confirmations table
+		configs.DB.Delete(&emailConfirmToken)
+
+
+		// TODO: create html page to show success
+		utils.SendResponse(rw, http.StatusOK, "email confirmed", map[string]interface{}{"data": "email confirmed"})
 	}
 }
 

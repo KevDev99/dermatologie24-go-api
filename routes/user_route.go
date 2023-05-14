@@ -11,4 +11,6 @@ func UserRoute(router *mux.Router) {
 	router.Handle("/user", middleware.AuthMiddleware(controllers.DeleteUser())).Methods("DELETE")
 	router.Handle("/user", middleware.AuthMiddleware(controllers.UpdateUser())).Methods("PATCH")
 	router.Handle("/reset-password", controllers.PasswordReset()).Methods("POST")
+	router.Handle("/confirm-mail", controllers.EmailConfirm()).Methods("GET")
+	router.Handle("/admin/users", middleware.AuthMiddleware(middleware.AdminMiddleware(controllers.GetUsers()))).Methods("GET")
 }

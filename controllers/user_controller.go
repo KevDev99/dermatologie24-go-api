@@ -84,3 +84,23 @@ func UpdateUser() http.HandlerFunc {
 		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": user})
 	}
 }
+
+func GetUsers() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+
+		var users []models.User
+
+		// retrieve all users
+		// exclude admin
+		err := configs.DB.Where("adminYN = ?", "0").Select("firstname, lastname, email, got_patient_details_yn").Find(&users).Error
+
+		// get user and check if user exists
+		if err != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		// return updates user and successfull status code
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": users})
+	}
+}
