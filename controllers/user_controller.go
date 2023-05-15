@@ -21,7 +21,8 @@ func GetUser() http.HandlerFunc {
 		var user models.User
 
 		// look up user
-		err := configs.DB.Select("id, firstname, lastname, email, got_patientdetails_yn ").Where("id = ?", userId).First(&user).Error
+		err := configs.DB.Select("id, email, got_patient_details_yn").Where("id = ?", userId).First(&user).Error
+		user.Password = ""
 
 		if err != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})

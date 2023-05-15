@@ -7,11 +7,14 @@ type User struct {
 	Email               string `json:"email" validate:"required"`
 	Password            string `json:"password" validate:"required"`
 	GotPatientDetailsYN bool   `json:"got_patient_details_yn"`
+	EmailConfirmedYN    bool   `json:"email_confirmed_yn"`
 }
 
 type UserWithoutPassword struct {
-	Id    int    `json:"id"`
-	Email string `json:"email"`
+	Id                  int    `json:"id"`
+	Email               string `json:"email"`
+	GotPatientDetailsYN bool   `json:"got_patient_details_yn"`
+	EmailConfirmedYN    bool   `json:"email_confirmed_yn"`
 }
 
 func (u User) GetJsonFields() []string {

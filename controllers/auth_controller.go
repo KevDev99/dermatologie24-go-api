@@ -36,6 +36,11 @@ func Login() http.HandlerFunc {
 			return
 		}
 
+		if !user.EmailConfirmedYN {
+			utils.SendResponse(rw, http.StatusBadRequest, "Email not confirmed.\nPlease check your inbox.", map[string]interface{}{"data": "Email not confirmed."})
+			return
+		}
+
 		// compare pw
 		authErr := utils.ComparePasswords([]byte(user.Password), userInput.Password)
 		if authErr != nil {
@@ -281,7 +286,6 @@ func EmailConfirm() http.HandlerFunc {
 
 		// delete from email confirmations table
 		configs.DB.Delete(&emailConfirmToken)
-
 
 		// TODO: create html page to show success
 		utils.SendResponse(rw, http.StatusOK, "email confirmed", map[string]interface{}{"data": "email confirmed"})
