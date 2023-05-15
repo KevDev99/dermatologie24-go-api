@@ -21,6 +21,8 @@ func main() {
 	routes.AuthRoute(router)
 	routes.StatsRoute(router)
 
+	router.PathPrefix("/public/").Handler(http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
+
 	fmt.Println("Server is ready to handle requests at", configs.EnvPort())
 	err := http.ListenAndServe(":"+configs.EnvPort(), router)
 

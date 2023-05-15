@@ -33,6 +33,24 @@ func GetUser() http.HandlerFunc {
 	}
 }
 
+func GetUserRecipes() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		userId := context.Get(r, "userId")
+
+		var userReceipts []models.UserRecipe
+
+		// look up user
+		err := configs.DB.Where("user_id = ?", userId).Find(&userReceipts).Error
+
+		if err != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error.", map[string]interface{}{"data": err.Error})
+			return
+		}
+
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": userReceipts})
+	}
+}
+
 func DeleteUser() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		userId := context.Get(r, "userId")
