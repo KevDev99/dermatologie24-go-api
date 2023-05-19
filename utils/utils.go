@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/KevDev99/dermatologie24-go-api/responses"
 	"golang.org/x/crypto/bcrypt"
@@ -34,4 +35,9 @@ func SendResponse(rw http.ResponseWriter, httpStatusCode int, message string, re
 	rw.WriteHeader(httpStatusCode)
 	response := responses.GeneralResponse{Status: httpStatusCode, Message: message, Data: responseData}
 	json.NewEncoder(rw).Encode(response)
+}
+
+func CheckIfTokenNotExpired(endTime time.Time, tokenTime time.Time) bool {
+
+	return endTime.After(tokenTime)
 }

@@ -251,7 +251,7 @@ func PasswordReset() http.HandlerFunc {
 			return
 		}
 
-		htmlBody := fmt.Sprintf("<h1>Passwort Zurücksetzen</h1><br/><br/><h2>Url: <a href='dermatologie24://launch?token=%s'>dermatologie24://launch?token=%s</a> <h2>", passwordForgetToken.Token, passwordForgetToken.Token)
+		htmlBody := fmt.Sprintf("<h1>Passwort Zurücksetzen</h1><br/><br/><h2>Url: <a href='derma24://dermatologie24.com/reset?token=%s'>Link</a> <h2>", passwordForgetToken.Token)
 
 		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", htmlBody)
 
@@ -334,5 +334,95 @@ func AdminLogin() http.HandlerFunc {
 
 		// Return a success response
 		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": map[string]interface{}{"access_token": accessToken}})
+	}
+}
+
+func UpdatePassword() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+
+		type PasswordToUpdate struct {
+			Token    string `json:"token" validate:"required"`
+			Password string `json:"password" validate:"required"`
+		}
+
+		var passwordToUpdate PasswordToUpdate
+		var passwordResetToken models.PasswordResetToken
+
+		// Parse the request body
+		err := json.NewDecoder(r.Body).Decode(&passwordToUpdate)
+
+		if err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, err.Error(), map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		//use the validator library to validate required fields
+		if validationErr := validate.Struct(&passwordToUpdate); validationErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Token or Password field not provided", map[string]interface{}{"data": validationErr.Error()})
+			return
+		}
+
+		// get token from database
+		queryErr := configs.DB.Where("token = ?", passwordToUpdate.Token).First(&passwordResetToken).Error
+		if queryErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Token Not Found.", map[string]interface{}{"data": "Token Not Found."})
+			return
+		}
+
+		// check if token expired
+		if !utils.CheckIfTokenNotExpired(passwordResetToken.ExpiresAt, time.Now()) {
+			utils.SendResponse(rw, http.StatusBadRequest, "Token Already Expired.", map[string]interface{}{"data": "Token Already Expired."})
+			return
+		}
+
+		// hash pw
+		hashedPassword, hashError := utils.GetHashedPassword(passwordToUpdate.Password)
+		if hashError != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error", map[string]interface{}{"data": hashError.Error()})
+			return
+		}
+
+		// update password
+		configs.DB.Model(&models.User{}).Where("id = ?", passwordResetToken.UserID).Update("password", string(hashedPassword))
+
+		// delete from table
+		configs.DB.Delete(&passwordResetToken)
+
+		// Return a success response
+		utils.SendResponse(rw, http.StatusOK, "password reseted.", map[string]interface{}{"data": "password reseted."})
+	}
+}
+
+func UpdateEmail() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		userId := context.Get(r, "userId").(int)
+
+		type EmailToUpdate struct {
+			NewEmail string `json:"email" validate:"required"`
+		}
+
+		var emailToUpdate EmailToUpdate
+		var updateEmail models.UpdateEmail
+
+		updateEmail.Email = emailToUpdate.NewEmail
+		updateEmail.UserID = userId
+		updateEmail.ConfirmedYN = false
+
+		// Parse the request body
+		err := json.NewDecoder(r.Body).Decode(&updateEmail)
+
+		if err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Invalid Request", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		createErr := configs.DB.Create(&updateEmail).Error
+
+		if createErr != nil {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Invalid Error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": "success"})
 	}
 }
