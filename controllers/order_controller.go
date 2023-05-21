@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -12,12 +13,15 @@ import (
 	"github.com/KevDev99/dermatologie24-go-api/configs"
 	"github.com/KevDev99/dermatologie24-go-api/models"
 	"github.com/KevDev99/dermatologie24-go-api/utils"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 )
 
 func AddOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		var booking models.Booking
+		var order models.Order
+
+		userId := int(math.Round(context.Get(r, "userId").(float64)))
 
 		// Parse the incoming request as a multipart form with a maximum file size of 32MB
 		if err := r.ParseMultipartForm(32 << 20); err != nil {
@@ -28,75 +32,81 @@ func AddOrder() http.HandlerFunc {
 		files := r.MultipartForm.File["files"] // Get the list of uploaded files from the request
 		form := r.Form
 
-		booking.Subject = form.Get("subject")
-		booking.Message = form.Get("message")
+		order.Message = form.Get("message")
+		order.PaymentExtId = form.Get("paymentId")
+		order.PaymentTypeId = form.Get("paymentTypeId")
+		order.UserId = userId
+		order.StatusId = 1
+
+		// create order
+		configs.DB.Create(&order)
 
 		// upload files
-		go uploadFiles(files, booking.Id)
+		go uploadFiles(files, order.Id)
 
-		utils.SendResponse(rw, http.StatusCreated, "success", map[string]interface{}{"data": booking})
+		utils.SendResponse(rw, http.StatusCreated, "success", map[string]interface{}{"data": order})
 	}
 }
 
 func GetOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		bookingId := mux.Vars(r)["id"]
+		orderId := mux.Vars(r)["id"]
 
-		var booking models.Booking
+		var order models.Order
 
-		// look up booking and preload "has-many" relation to booking files.
-		err := configs.DB.Model(&models.Booking{}).Preload("BookingFiles").First(&booking, bookingId).Error
+		// look up order and preload "has-many" relation to order files.
+		err := configs.DB.Model(&models.Order{}).Preload("orderFiles").First(&order, orderId).Error
 
 		if err != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
-		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": booking})
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": order})
 	}
 }
 
 func DeleteOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		bookingId := mux.Vars(r)["id"]
+		orderId := mux.Vars(r)["id"]
 
-		var booking models.Booking
+		var order models.Order
 
-		// delete booking
-		err := configs.DB.Delete(&booking, bookingId).Error
+		// delete order
+		err := configs.DB.Delete(&order, orderId).Error
 
 		if err != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
-		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": "booking deleted."})
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": "order deleted."})
 	}
 }
 
 func UpdateOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		bookingId := mux.Vars(r)["id"]
+		orderId := mux.Vars(r)["id"]
 
-		var booking models.Booking
+		var order models.Order
 
 		// get user and check if user exists
-		err := configs.DB.Preload("BookingFiles").First(&booking, bookingId).Error
+		err := configs.DB.Preload("orderFiles").First(&order, orderId).Error
 		if err != nil {
 			utils.SendResponse(rw, http.StatusInternalServerError, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
 		// Decode the request body into a User struct
-		var updateBooking models.Booking
-		err = json.NewDecoder(r.Body).Decode(&updateBooking)
+		var updateorder models.Order
+		err = json.NewDecoder(r.Body).Decode(&updateorder)
 		if err != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
 		// update user in DB
-		dberr := configs.DB.Model(&booking).Updates(updateBooking).Error
+		dberr := configs.DB.Model(&order).Updates(updateorder).Error
 
 		// show internal error if needed
 		if dberr != nil {
@@ -105,18 +115,18 @@ func UpdateOrder() http.HandlerFunc {
 		}
 
 		// return updates user and successfull status code
-		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": booking})
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": order})
 	}
 }
 
 func AddFileToOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		bookingId := mux.Vars(r)["id"]
+		orderId := mux.Vars(r)["id"]
 
-		var booking models.Booking
+		var order models.Order
 
-		// get booking and check if it exists
-		err := configs.DB.Preload("BookingFiles").First(&booking, bookingId).Error
+		// get order and check if it exists
+		err := configs.DB.Preload("orderFiles").First(&order, orderId).Error
 		if err != nil {
 			utils.SendResponse(rw, http.StatusInternalServerError, "error", map[string]interface{}{"data": err.Error()})
 			return
@@ -132,40 +142,40 @@ func AddFileToOrder() http.HandlerFunc {
 
 		files := r.MultipartForm.File["files"] // Get the list of uploaded files from the request
 
-		uploadErr := uploadFiles(files, booking.Id)
+		uploadErr := uploadFiles(files, order.Id)
 
 		if uploadErr != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": uploadErr.Error()})
 			return
 		}
 
-		configs.DB.Preload("BookingFiles").First(&booking, bookingId)
+		configs.DB.Preload("orderFiles").First(&order, orderId)
 
-		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": booking})
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": order})
 	}
 }
 
 func DeleteOrderFile() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		var bookingFile models.BookingFile
+		var orderFile models.OrderFile
 
 		// get query params
-		bookingId := mux.Vars(r)["id"]
-		bookingFileId := mux.Vars(r)["bookingFileId"]
+		orderId := mux.Vars(r)["id"]
+		orderFileId := mux.Vars(r)["orderFileId"]
 
 		// convert to int
-		intBookingFileId, err := strconv.Atoi(bookingFileId)
+		intorderFileId, err := strconv.Atoi(orderFileId)
 
 		if err != nil {
 			utils.SendResponse(rw, http.StatusInternalServerError, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
-		// assign converted id to new instance of booking file
-		bookingFile.Id = intBookingFileId
+		// assign converted id to new instance of order file
+		orderFile.Id = intorderFileId
 
-		// get booking file dataset
-		queryErr := configs.DB.Where("booking_id = ?", bookingId).First(&bookingFile, bookingFileId).Error
+		// get order file dataset
+		queryErr := configs.DB.Where("order_id = ?", orderId).First(&orderFile, orderFileId).Error
 
 		if queryErr != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": queryErr.Error()})
@@ -173,10 +183,10 @@ func DeleteOrderFile() http.HandlerFunc {
 		}
 
 		// delete file
-		go deleteFile(bookingFile.FilePath)
+		go deleteFile(orderFile.FilePath)
 
 		// delete dataset on database
-		dbErr := configs.DB.Where("booking_id = ?", bookingId).Delete(&bookingFile).Error
+		dbErr := configs.DB.Where("order_id = ?", orderId).Delete(&orderFile).Error
 		if dbErr != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": dbErr})
 			return
@@ -187,10 +197,10 @@ func DeleteOrderFile() http.HandlerFunc {
 	}
 }
 
-func uploadFiles(files []*multipart.FileHeader, bookingId int) error {
+func uploadFiles(files []*multipart.FileHeader, orderId int) error {
 
 	for _, fileHeader := range files {
-		var bookingFile models.BookingFile
+		var orderFile models.OrderFile
 
 		file, err := fileHeader.Open()
 		if err != nil {
@@ -199,7 +209,7 @@ func uploadFiles(files []*multipart.FileHeader, bookingId int) error {
 		defer file.Close()
 
 		// Save the uploaded file to disk
-		filepath := "booking-files/" + fileHeader.Filename
+		filepath := "order-files/" + fileHeader.Filename
 		f, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			return err
@@ -211,11 +221,11 @@ func uploadFiles(files []*multipart.FileHeader, bookingId int) error {
 			return err
 		}
 
-		bookingFile.Name = fileHeader.Filename
-		bookingFile.FilePath = filepath
-		bookingFile.BookingId = bookingId
+		orderFile.Name = fileHeader.Filename
+		orderFile.FilePath = filepath
+		orderFile.OrderId = orderId
 
-		configs.DB.Save(&bookingFile)
+		configs.DB.Save(&orderFile)
 	}
 
 	return nil
