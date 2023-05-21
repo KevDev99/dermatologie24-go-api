@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func AddBooking() http.HandlerFunc {
+func AddOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		var booking models.Booking
 
@@ -38,7 +38,7 @@ func AddBooking() http.HandlerFunc {
 	}
 }
 
-func GetBooking() http.HandlerFunc {
+func GetOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		bookingId := mux.Vars(r)["id"]
 
@@ -56,7 +56,7 @@ func GetBooking() http.HandlerFunc {
 	}
 }
 
-func DeleteBooking() http.HandlerFunc {
+func DeleteOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		bookingId := mux.Vars(r)["id"]
 
@@ -74,7 +74,7 @@ func DeleteBooking() http.HandlerFunc {
 	}
 }
 
-func UpdateBooking() http.HandlerFunc {
+func UpdateOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		bookingId := mux.Vars(r)["id"]
 
@@ -109,7 +109,7 @@ func UpdateBooking() http.HandlerFunc {
 	}
 }
 
-func AddFileToBooking() http.HandlerFunc {
+func AddFileToOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		bookingId := mux.Vars(r)["id"]
 
@@ -145,7 +145,7 @@ func AddFileToBooking() http.HandlerFunc {
 	}
 }
 
-func DeleteBookingFile() http.HandlerFunc {
+func DeleteOrderFile() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		var bookingFile models.BookingFile
 

@@ -238,6 +238,12 @@ func PasswordReset() http.HandlerFunc {
 		}
 
 		// check if there is already a token in the db
+		rowsAffected := configs.DB.Where("user_id = ?", user.Id).First(&models.PasswordResetToken{}).RowsAffected
+		if rowsAffected > 0 {
+			utils.SendResponse(rw, http.StatusBadRequest, "There is already a password reset on going", map[string]interface{}{"data": "There is already a password reset on going"})
+			return
+		}
+
 		newToken := uuid.New().String()
 		expiresAt := time.Now().Add(time.Hour * 24)
 
@@ -395,31 +401,50 @@ func UpdatePassword() http.HandlerFunc {
 
 func UpdateEmail() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		userId := context.Get(r, "userId").(int)
+		userId := fmt.Sprintf("%d", int(context.Get(r, "userId").(float64)))
+
+		fmt.Println(userId)
 
 		type EmailToUpdate struct {
 			NewEmail string `json:"email" validate:"required"`
 		}
 
 		var emailToUpdate EmailToUpdate
-		var updateEmail models.UpdateEmail
-
-		updateEmail.Email = emailToUpdate.NewEmail
-		updateEmail.UserID = userId
-		updateEmail.ConfirmedYN = false
+		var user models.User
+		var updateUser models.User
 
 		// Parse the request body
-		err := json.NewDecoder(r.Body).Decode(&updateEmail)
+		err := json.NewDecoder(r.Body).Decode(&emailToUpdate)
 
 		if err != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "Invalid Request", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
-		createErr := configs.DB.Create(&updateEmail).Error
+		// get user and check if user exists
+		queryErr := configs.DB.First(&user, userId).Error
+		if queryErr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Der Benutzer konnte nicht gefunden werden.", map[string]interface{}{"data": err.Error()})
+			return
+		}
 
-		if createErr != nil {
-			utils.SendResponse(rw, http.StatusInternalServerError, "Invalid Error", map[string]interface{}{"data": err.Error()})
+		// check if the mail is already selected
+		// get token from database
+		rowsAffected := configs.DB.Where("email = ?", emailToUpdate.NewEmail).First(&models.User{}).RowsAffected
+		if rowsAffected > 0 {
+			utils.SendResponse(rw, http.StatusBadRequest, "There is already an user with that email.", map[string]interface{}{"data": "There is already an user with that email."})
+			return
+		}
+
+		updateUser = user
+		updateUser.Email = emailToUpdate.NewEmail
+
+		// update user in DB
+		dberr := configs.DB.Model(&user).Updates(updateUser).Error
+
+		// show internal error if needed
+		if dberr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 

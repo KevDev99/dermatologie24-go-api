@@ -13,6 +13,5 @@ func AuthRoute(router *mux.Router) {
 	router.Handle("/auth/refresh-token", controllers.RefreshToken()).Methods("POST")
 	router.Handle("/admin/login", controllers.AdminLogin()).Methods("POST")
 	router.Handle("/update-password", middleware.AuthMiddleware(controllers.UpdatePassword())).Methods("POST")
-	router.Handle("/update-email", middleware.AuthMiddleware(controllers.UpdateEmail())).Methods("POST")
-
+	router.Handle("/update-email", middleware.AuthMiddleware(controllers.UpdateEmail())).Methods("PATCH")
 }

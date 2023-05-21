@@ -20,6 +20,7 @@ func main() {
 	routes.BookingRoute(router)
 	routes.AuthRoute(router)
 	routes.StatsRoute(router)
+	routes.PaymentRoute(router)
 
 	router.PathPrefix("/public/").Handler(http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
 
