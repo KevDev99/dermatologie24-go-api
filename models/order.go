@@ -7,7 +7,8 @@ type Order struct {
 	StatusId      int         `json:"status_id" validate:"required"`
 	PaymentExtId  string      `json:"payment_ext_id" validate:"required"`
 	PaymentTypeId string      `json:"payment_type_id" validate:"required"`
-	BookingFiles  []OrderFile `json:"booking_files"`
+	User          User        `json:"user" gorm:"foreignKey:UserID;references:Id"`
+	OrderFile     []OrderFile `json:"order_files"`
 }
 
 type OrderFile struct {

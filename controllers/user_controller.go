@@ -111,7 +111,7 @@ func GetUsers() http.HandlerFunc {
 
 		// retrieve all users
 		// exclude admin
-		err := configs.DB.Where("adminYN = ?", "0").Select("firstname, lastname, email, got_patient_details_yn").Find(&users).Error
+		err := configs.DB.Preload("UserDetails").Where("adminYN = ?", "0").Find(&users).Error
 
 		// get user and check if user exists
 		if err != nil {

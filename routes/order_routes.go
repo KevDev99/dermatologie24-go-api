@@ -9,6 +9,7 @@ import (
 func BookingRoute(router *mux.Router) {
 	router.Handle("/order", middleware.AuthMiddleware(controllers.AddOrder())).Methods("POST")
 	router.Handle("/order/{id}", middleware.AuthMiddleware(controllers.GetOrder())).Methods("GET")
+	router.Handle("/orders", middleware.AuthMiddleware(middleware.AdminMiddleware(controllers.GetOrders()))).Methods("GET")
 	router.Handle("/order/{id}", middleware.AuthMiddleware(controllers.DeleteOrder())).Methods("DELETE")
 	router.Handle("/order/{id}", middleware.AuthMiddleware(controllers.UpdateOrder())).Methods("PATCH")
 

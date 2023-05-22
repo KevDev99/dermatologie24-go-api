@@ -15,6 +15,7 @@ import (
 	"github.com/KevDev99/dermatologie24-go-api/utils"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
+	"github.com/jinzhu/gorm"
 )
 
 func AddOrder() http.HandlerFunc {
@@ -239,4 +240,30 @@ func deleteFile(filePath string) error {
 	}
 
 	return nil
+}
+
+func GetOrders() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		queryParams := r.URL.Query()
+
+		statusIDStr := queryParams.Get("status_id")
+		var orders []models.Order
+
+		// Retrieve user orders with associated user and user details
+		db := configs.DB.Preload("User.UserDetails")
+
+		if statusIDStr != "" {
+
+			db = db.Where("status_id = ?", statusIDStr)
+		}
+
+		err := db.Find(&orders).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		// Return user orders with success status code
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": orders})
+	}
 }
