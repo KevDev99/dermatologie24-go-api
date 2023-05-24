@@ -253,7 +253,6 @@ func GetOrders() http.HandlerFunc {
 		db := configs.DB.Preload("User.UserDetails")
 
 		if statusIDStr != "" {
-
 			db = db.Where("status_id = ?", statusIDStr)
 		}
 
