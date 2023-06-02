@@ -1,26 +1,43 @@
 package configs
 
 import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
-	"strconv"
 
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"gopkg.in/gomail.v2"
 )
 
-func SendMail(from string, to string, subject string, htmlBody string) {
-	m := gomail.NewMessage()
-	m.SetHeader("From", from)
-	m.SetHeader("To", to)
-	m.SetHeader("Subject", subject)
-	m.SetBody("text/html", htmlBody)
+func SendMail(payload string) {
+	url := os.Getenv("BREVO_URL") + "/smtp/email"
+	apiKey := os.Getenv("BREVO_API_KEY")
 
-	smtpPort, _ := strconv.Atoi(os.Getenv("SMTP_PORT"))
-
-	d := gomail.NewDialer(os.Getenv("SMTP_SERVER"), smtpPort, os.Getenv("SMTP_USER"), os.Getenv("SMTP_PW"))
-
-	// Send the email to Bob, Cora and Dan.
-	if err := d.DialAndSend(m); err != nil {
-		panic(err)
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString(payload))
+	if err != nil {
+		fmt.Println("Error creating HTTP request:", err)
+		return
 	}
+
+	req.Header.Set("api-key", apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending HTTP request:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %s\n", err.Error())
+		return
+	}
+
+	fmt.Println(string(body))
+
+	fmt.Println("Response status:", resp.Status)
 }

@@ -120,19 +120,10 @@ func Register() http.HandlerFunc {
 			return
 		}
 
-		// create token for email confirmation
-		// check if there is already a token in the db
-		newToken := uuid.New().String()
-		expiresAt := time.Now().Add(time.Hour * 24)
-		emailConfirmToken := models.EmailConfirmToken{Token: newToken, UserID: newUser.Id, ExpiresAt: expiresAt}
-
-		if err := configs.DB.Create(&emailConfirmToken).Error; err != nil {
-			utils.SendResponse(rw, http.StatusInternalServerError, "Internal Error", map[string]interface{}{"data": err.Error()})
+		if err := utils.SendMailConfirmationMail(newUser.Id, newUser.Email); err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Internal Error", map[string]interface{}{"data": err.Error()})
 			return
 		}
-
-		htmlBody := fmt.Sprintf("<h1>Email Bestätigen</h1><br/><br/><h2>Link: <a href='%s:%s/%s?token=%s'>Hier Klicken</a> <h2>", os.Getenv("URL"), os.Getenv("PORT"), "confirm-mail", emailConfirmToken.Token)
-		configs.SendMail("no-reply@dermatologie24.com", newUser.Email, "Email Bestätigen", htmlBody)
 
 		// clear pw from response
 		newUser.Password = ""
@@ -237,13 +228,6 @@ func PasswordReset() http.HandlerFunc {
 			return
 		}
 
-		// check if there is already a token in the db
-		rowsAffected := configs.DB.Where("user_id = ?", user.Id).First(&models.PasswordResetToken{}).RowsAffected
-		if rowsAffected > 0 {
-			utils.SendResponse(rw, http.StatusBadRequest, "There is already a password reset on going", map[string]interface{}{"data": "There is already a password reset on going"})
-			return
-		}
-
 		newToken := uuid.New().String()
 		expiresAt := time.Now().Add(time.Hour * 24)
 
@@ -257,9 +241,34 @@ func PasswordReset() http.HandlerFunc {
 			return
 		}
 
-		htmlBody := fmt.Sprintf("<h1>Passwort Zurücksetzen</h1><br/><br/><h2>Url: <a href='derma24://dermatologie24.com/reset?token=%s'>Link</a> <h2>", passwordForgetToken.Token)
+		appUrl := os.Getenv("APP_URL") + fmt.Sprintf("/reset?token=%s", passwordForgetToken.Token)
 
-		configs.SendMail("no-reply@dermatologie24.com", "kevin.taufer@outlook.com", "Password zurücksetzen", htmlBody)
+		payload := fmt.Sprintf(`{
+			"sender":{
+				"email": "%s",
+				"name": "%s"
+			},
+			"subject": "%s",
+			"templateId": %s,
+			"params":{
+				"link": "%s"
+			},
+			"messageVersions": [
+				{
+					"to": [
+						{
+							"email": "%s"
+						}
+					],
+					"params": {
+						"link": "%s"
+					},
+					"subject": "Passwort zurücksetzen"
+				}
+			]
+		}`, email, email, "Passwort zurücksetzen", os.Getenv("BREVO_PASSWORT_RESET_TEMPLATE_ID"), appUrl, user.Email, appUrl)
+
+		configs.SendMail(payload)
 
 		utils.SendResponse(rw, http.StatusOK, "reset token send via mail.", map[string]interface{}{"data": "reset token send via mail."})
 	}
@@ -293,7 +302,6 @@ func EmailConfirm() http.HandlerFunc {
 		// delete from email confirmations table
 		configs.DB.Delete(&emailConfirmToken)
 
-		// TODO: create html page to show success
 		utils.SendResponse(rw, http.StatusOK, "email confirmed", map[string]interface{}{"data": "email confirmed"})
 	}
 }
@@ -368,6 +376,8 @@ func UpdatePassword() http.HandlerFunc {
 			return
 		}
 
+		fmt.Println(passwordToUpdate)
+
 		// get token from database
 		queryErr := configs.DB.Where("token = ?", passwordToUpdate.Token).First(&passwordResetToken).Error
 		if queryErr != nil {
@@ -403,8 +413,6 @@ func UpdateEmail() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		userId := fmt.Sprintf("%d", int(context.Get(r, "userId").(float64)))
 
-		fmt.Println(userId)
-
 		type EmailToUpdate struct {
 			NewEmail string `json:"email" validate:"required"`
 		}
@@ -438,6 +446,15 @@ func UpdateEmail() http.HandlerFunc {
 
 		updateUser = user
 		updateUser.Email = emailToUpdate.NewEmail
+		updateUser.EmailConfirmedYN = false
+
+		// resend email confirm
+		if err := utils.SendMailConfirmationMail(updateUser.Id, updateUser.Email); err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "Internal Error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		configs.DB.Exec("UPDATE users SET email_confirmed_yn = ? WHERE id = ?", 0, updateUser.Id)
 
 		// update user in DB
 		dberr := configs.DB.Model(&user).Updates(updateUser).Error

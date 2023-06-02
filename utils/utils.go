@@ -2,10 +2,15 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/KevDev99/dermatologie24-go-api/configs"
+	"github.com/KevDev99/dermatologie24-go-api/models"
 	"github.com/KevDev99/dermatologie24-go-api/responses"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -40,4 +45,44 @@ func SendResponse(rw http.ResponseWriter, httpStatusCode int, message string, re
 func CheckIfTokenNotExpired(endTime time.Time, tokenTime time.Time) bool {
 
 	return endTime.After(tokenTime)
+}
+
+func SendMailConfirmationMail(userId int, email string) error {
+	// create token for email confirmation
+	// check if there is already a token in the db
+	newToken := uuid.New().String()
+	expiresAt := time.Now().Add(time.Hour * 24)
+	emailConfirmToken := models.EmailConfirmToken{Token: newToken, UserID: userId, ExpiresAt: expiresAt}
+
+	err := configs.DB.Create(&emailConfirmToken).Error
+
+	appUrl := os.Getenv("APP_URL") + fmt.Sprintf("/email-confirm?token=%s", emailConfirmToken.Token)
+
+	payload := fmt.Sprintf(`{
+		"sender": {
+			"email": "kevin.taufer@outlook.com",
+			"name": "kevin.taufer@outlook.com"
+		},
+		"params": {
+					"link": "%s"
+				},
+		"templateId": %s,
+		"messageVersions": [
+			{
+				"to": [
+					{
+						"email": "%s"
+					}
+				],
+				"params": {
+					"link": "%s"
+				},
+				"subject": "Email Bestätigen"
+			}
+		]
+	}`, appUrl, os.Getenv("BREVO_MAIL_CONFIRM_TEMPLATE_ID"), email, appUrl)
+
+	configs.SendMail(payload)
+
+	return err
 }
