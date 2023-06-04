@@ -47,11 +47,17 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Call the next handler with the user ID from the token
-		userId := token.Claims.(jwt.MapClaims)["id"].(float64)
+		userIdFloat64, ok := token.Claims.(jwt.MapClaims)["id"].(float64)
+		if ok {
+			userId := int(userIdFloat64)
+			context.Set(r, "userId", userId)
 
-		context.Set(r, "userId", userId)
+			// call next to continue
+			next(w, r)
+		} else {
+			http.Error(w, "no valid userid provided", http.StatusUnauthorized)
+			return
+		}
 
-		// call next to continue
-		next(w, r)
 	}
 }

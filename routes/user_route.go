@@ -15,4 +15,6 @@ func UserRoute(router *mux.Router) {
 	router.Handle("/reset-password", controllers.PasswordReset()).Methods("POST")
 	router.Handle("/confirm-mail", controllers.EmailConfirm()).Methods("POST")
 	router.Handle("/admin/users", middleware.AuthMiddleware(middleware.AdminMiddleware(controllers.GetUsers()))).Methods("GET")
+
+	router.Handle("/user/profile-data", middleware.AuthMiddleware(controllers.ProfileData())).Methods("POST")
 }

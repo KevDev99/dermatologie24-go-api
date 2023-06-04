@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Order struct {
 	Id            int         `json:"id" gorm:"foreignKey:OrderId;references:Id"`
 	UserId        int         `json:"user_id" validate:"required"`
@@ -12,8 +14,8 @@ type Order struct {
 }
 
 type OrderFile struct {
-	Id       int `json:"id"`
-	OrderId  int `json:"order_id" validate:"required"`
-	Name     string
-	FilePath string
+	OrderId   int       `json:"order_id" validate:"required"`
+	FileId    int       `json:"file_id" validate:"required"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

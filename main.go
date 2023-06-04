@@ -21,6 +21,7 @@ func main() {
 	routes.AuthRoute(router)
 	routes.StatsRoute(router)
 	routes.PaymentRoute(router)
+	routes.RecipeRoute(router)
 
 	router.PathPrefix("/public/").Handler(http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
 

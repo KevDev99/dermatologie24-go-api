@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -22,28 +21,46 @@ func AddOrder() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		var order models.Order
 
-		userId := int(math.Round(context.Get(r, "userId").(float64)))
+		userId := context.Get(r, "userId").(int)
 
 		// Parse the incoming request as a multipart form with a maximum file size of 32MB
-		if err := r.ParseMultipartForm(32 << 20); err != nil {
+		maxBytes := int64(32 * 1024 * 1024) // Example: Set the maximum file size to 100MB
+		err := r.ParseMultipartForm(maxBytes)
+
+		if err != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
 			return
 		}
 
-		files := r.MultipartForm.File["files"] // Get the list of uploaded files from the request
+		files := r.MultipartForm.File["files"]
+		fmt.Println(files)
 		form := r.Form
 
 		order.Message = form.Get("message")
 		order.PaymentExtId = form.Get("paymentId")
 		order.PaymentTypeId = form.Get("paymentTypeId")
-		order.UserId = userId
+		order.UserId = int(userId)
 		order.StatusId = 1
 
 		// create order
 		configs.DB.Create(&order)
 
 		// upload files
-		go uploadFiles(files, order.Id)
+		uploadedFiles, err := uploadFiles(files)
+
+		if err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		for _, uploadedFile := range uploadedFiles {
+			var orderFile models.OrderFile
+
+			orderFile.FileId = uploadedFile.Id
+			orderFile.OrderId = order.Id
+
+			configs.DB.Save(&orderFile)
+		}
 
 		utils.SendResponse(rw, http.StatusCreated, "success", map[string]interface{}{"data": order})
 	}
@@ -143,7 +160,7 @@ func AddFileToOrder() http.HandlerFunc {
 
 		files := r.MultipartForm.File["files"] // Get the list of uploaded files from the request
 
-		uploadErr := uploadFiles(files, order.Id)
+		_, uploadErr := uploadFiles(files)
 
 		if uploadErr != nil {
 			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": uploadErr.Error()})
@@ -173,7 +190,7 @@ func DeleteOrderFile() http.HandlerFunc {
 		}
 
 		// assign converted id to new instance of order file
-		orderFile.Id = intorderFileId
+		orderFile.FileId = intorderFileId
 
 		// get order file dataset
 		queryErr := configs.DB.Where("order_id = ?", orderId).First(&orderFile, orderFileId).Error
@@ -184,7 +201,7 @@ func DeleteOrderFile() http.HandlerFunc {
 		}
 
 		// delete file
-		go deleteFile(orderFile.FilePath)
+		// go deleteFile(orderFile.FilePath)
 
 		// delete dataset on database
 		dbErr := configs.DB.Where("order_id = ?", orderId).Delete(&orderFile).Error
@@ -198,38 +215,42 @@ func DeleteOrderFile() http.HandlerFunc {
 	}
 }
 
-func uploadFiles(files []*multipart.FileHeader, orderId int) error {
+func uploadFiles(files []*multipart.FileHeader) ([]models.File, error) {
+
+	var dbFiles []models.File
 
 	for _, fileHeader := range files {
-		var orderFile models.OrderFile
+		var newFile models.File
 
 		file, err := fileHeader.Open()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer file.Close()
 
 		// Save the uploaded file to disk
-		filepath := "order-files/" + fileHeader.Filename
+		filepath := "files/" + fileHeader.Filename
 		f, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer f.Close()
 
 		_, err = io.Copy(f, file)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		orderFile.Name = fileHeader.Filename
-		orderFile.FilePath = filepath
-		orderFile.OrderId = orderId
+		newFile.Filename = fileHeader.Filename
+		newFile.FilePath = filepath
+		newFile.FileSize = int(fileHeader.Size)
 
-		configs.DB.Save(&orderFile)
+		configs.DB.Save(&newFile)
+
+		dbFiles = append(dbFiles, newFile)
 	}
 
-	return nil
+	return dbFiles, nil
 }
 
 func deleteFile(filePath string) error {

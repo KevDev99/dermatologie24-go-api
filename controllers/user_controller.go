@@ -123,3 +123,43 @@ func GetUsers() http.HandlerFunc {
 		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": users})
 	}
 }
+
+func ProfileData() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		userId := context.Get(r, "userId")
+
+		var user models.User
+
+		// get user and check if user exists
+		err := configs.DB.First(&user, userId).Error
+		if err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, err.Error(), map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		// Decode the request body into a ProfileData struct
+		var profileData models.ProfileDetails
+		err = json.NewDecoder(r.Body).Decode(&profileData)
+		if err != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		profileData.UserId = user.Id
+
+		// create profile data in DB
+		dberr := configs.DB.Create(&profileData).Error
+
+		// show internal error if needed
+		if dberr != nil {
+			utils.SendResponse(rw, http.StatusBadRequest, "error", map[string]interface{}{"data": err.Error()})
+			return
+		}
+
+		// update gotPatientDetailsYN
+		configs.DB.Exec("UPDATE users SET got_patient_details_yn = ? WHERE id = ?", 1, user.Id)
+
+		// return updates user and successfull status code
+		utils.SendResponse(rw, http.StatusOK, "success", map[string]interface{}{"data": user})
+	}
+}
